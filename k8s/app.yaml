@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: demo
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: app } }
+  template:
+    metadata: { labels: { app: app } }
+    spec:
+      containers:
+        - name: app
+          image: demo/app:0.1
+          ports: [ { containerPort: 8080 } ]
+          env:
+            - { name: APP_ENV, valueFrom: { configMapKeyRef: { name: app-config, key: APP_ENV } } }
+            - { name: PG_DB,  valueFrom: { configMapKeyRef: { name: app-config, key: PG_DB  } } }
+            - { name: PG_USER,valueFrom: { configMapKeyRef: { name: app-config, key: PG_USER} } }
+            - { name: PG_HOST,valueFrom: { configMapKeyRef: { name: app-config, key: PG_HOST} } }
+            - { name: PG_PORT,valueFrom: { configMapKeyRef: { name: app-config, key: PG_PORT} } }
+            - { name: PG_PASS, valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_PASSWORD } } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: demo
+spec:
+  selector: { app: app }
+  ports: [ { port: 80, targetPort: 8080 } ]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: app, port: { number: 80 } } }
